@@ -17,13 +17,20 @@ public class Health : MonoBehaviour
 
     public void ApplyDamage(int damage){
         curHp -= damage;
-        //Debug.Log(gameObject.name + "cur:" + curHp +"damage:"+ damage);
+        CheckDead();
+        Debug.Log(gameObject.name + "cur:" + curHp +"damage:"+ damage);
     }
 
     // Start is called before the first frame update
     void Start()
     {
         
+    }
+
+    void CheckDead(){
+        if(curHp<=0){
+            _cc.SwitchStateTo(Character.CharacterState.Dead);
+        }
     }
 
     // Update is called once per frame

@@ -22,6 +22,7 @@ public class Character : MonoBehaviour
     public enum CharacterState{
         Normal,
         Attacking,
+        Dead,
     }
 
     private CharacterState CurrentState;
@@ -29,6 +30,8 @@ public class Character : MonoBehaviour
 
     private MaterialPropertyBlock _materialPropertyBlock;
     private SkinnedMeshRenderer _skinnedMeshRenderer;
+
+    public GameObject dropItem;
 
     private void Awake() {
         _cc = GetComponent<CharacterController>();
@@ -85,7 +88,7 @@ public class Character : MonoBehaviour
         }
     }
 
-    private void SwitchStateTo(CharacterState newState){
+    public void SwitchStateTo(CharacterState newState){
         if(IsPlayer){
             _playerInput.MouseButtonDown = false;
         }
@@ -97,6 +100,8 @@ public class Character : MonoBehaviour
                     DisableDamage();
                 }
                 break;
+            case CharacterState.Dead:
+                return;
         }
         switch(newState){
             case CharacterState.Normal:
@@ -106,6 +111,11 @@ public class Character : MonoBehaviour
                     transform.rotation = Quaternion.LookRotation(TargetPlayer.position- transform.position); 
                 }
                 _animator.SetTrigger("Attack");
+                break;
+            case CharacterState.Dead:
+                _cc.enabled = false;
+                _animator.SetTrigger("Dead");
+                StartCoroutine(MateriaDissolve());
                 break;
         }
         CurrentState = newState;
@@ -128,6 +138,8 @@ public class Character : MonoBehaviour
                 break;
             case CharacterState.Attacking:
                 break;
+            case CharacterState.Dead:
+                return;
         }
     }
 
@@ -140,6 +152,9 @@ public class Character : MonoBehaviour
     }
 
     public void EnableDamage(){
+        if(_damageCaster){
+             Debug.Log(gameObject.name + "cur:" + _damageCaster.Damage);
+        }
         _damageCaster.EnableDamage();
     }
 
@@ -157,6 +172,31 @@ public class Character : MonoBehaviour
         yield return new WaitForSeconds(0.2f);
         _materialPropertyBlock.SetFloat("_blink", 0f);
         _skinnedMeshRenderer.SetPropertyBlock(_materialPropertyBlock);
+    }
+
+    IEnumerator MateriaDissolve(){
+        yield return new WaitForSeconds(2);
+        float duration = 2f;
+        float curTime =0;
+        float startH = 20f;
+        float endH = -10f;
+        float tempH;
+        _materialPropertyBlock.SetFloat("_enableDissolve",1f);
+        _skinnedMeshRenderer.SetPropertyBlock(_materialPropertyBlock);
+        while(curTime<duration){
+            curTime += Time.deltaTime;
+            tempH = Mathf.Lerp(startH, endH, curTime/duration);
+            _materialPropertyBlock.SetFloat("_dissolve_height", tempH);
+            _skinnedMeshRenderer.SetPropertyBlock(_materialPropertyBlock);
+            yield return null;
+        }
+        DropItem();
+    }
+
+    private void DropItem(){
+        if(dropItem != null){
+            Instantiate(dropItem, transform.position, Quaternion.identity);
+        }
     }
 
 
