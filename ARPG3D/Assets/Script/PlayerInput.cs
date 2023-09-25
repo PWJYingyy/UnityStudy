@@ -7,6 +7,8 @@ public class PlayerInput : MonoBehaviour
     public float HorizontalInput;
     public float VerticalInput;
     public bool MouseButtonDown;
+
+    public bool SlideDown;
     // Start is called before the first frame update
     void Start()
     {
@@ -19,12 +21,21 @@ public class PlayerInput : MonoBehaviour
         if(!MouseButtonDown && Time.timeScale !=0){
             MouseButtonDown = Input.GetMouseButtonDown(0);
         }
+        if(!SlideDown && Time.timeScale !=0){
+            SlideDown = Input.GetKeyDown(KeyCode.Space);
+        }
         HorizontalInput = Input.GetAxisRaw("Horizontal");
         VerticalInput = Input.GetAxisRaw("Vertical");
     }
 
     private void OnDisable() {
+        Clear();
+    }
+
+    public void Clear(){
         HorizontalInput = 0;
-        VerticalInput = 0;    
+        VerticalInput = 0;
+        SlideDown = false;
+        MouseButtonDown = false;
     }
 }

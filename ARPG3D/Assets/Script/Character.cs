@@ -1,5 +1,7 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 
 public class Character : MonoBehaviour
@@ -23,6 +25,8 @@ public class Character : MonoBehaviour
         Normal,
         Attacking,
         Dead,
+        BeHit,
+        Slide,
     }
 
     private CharacterState CurrentState;
@@ -33,6 +37,11 @@ public class Character : MonoBehaviour
 
     public GameObject dropItem;
 
+    private Vector3 impactOnCharacter;
+
+    public int Coin =0 ;
+    private float attackAnimTime;
+    public float slideSpeed = 9.0f;
     private void Awake() {
         _cc = GetComponent<CharacterController>();
         _animator = GetComponent<Animator>();
@@ -53,6 +62,15 @@ public class Character : MonoBehaviour
     }
 
     private void CalculatePlayerMovement(){
+        if(_playerInput.MouseButtonDown){
+            SwitchStateTo(CharacterState.Attacking);
+            return;
+        }
+        if(_playerInput.SlideDown){
+            SwitchStateTo(CharacterState.Slide);
+            return;
+        }
+
         _movementVelocity.Set(_playerInput.HorizontalInput, 0f,_playerInput.VerticalInput);
         _movementVelocity.Normalize();
         //修正角度,因为相机的Y倾斜了45
@@ -90,7 +108,7 @@ public class Character : MonoBehaviour
 
     public void SwitchStateTo(CharacterState newState){
         if(IsPlayer){
-            _playerInput.MouseButtonDown = false;
+            _playerInput.Clear();
         }
         switch(CurrentState){
             case CharacterState.Normal:
@@ -99,9 +117,16 @@ public class Character : MonoBehaviour
                 if(_damageCaster != null){
                     DisableDamage();
                 }
+                if(IsPlayer){
+                    GetComponent<PlayerVFXManager>().StopBlade();
+                }
                 break;
             case CharacterState.Dead:
                 return;
+            case CharacterState.BeHit:
+                break;
+            case CharacterState.Slide:
+                break;
         }
         switch(newState){
             case CharacterState.Normal:
@@ -117,6 +142,12 @@ public class Character : MonoBehaviour
                 _animator.SetTrigger("Dead");
                 StartCoroutine(MateriaDissolve());
                 break;
+            case CharacterState.BeHit:
+                _animator.SetTrigger("BeHit");
+                break;
+            case CharacterState.Slide:
+                _animator.SetTrigger("Slide");
+                break;
         }
         CurrentState = newState;
     }
@@ -125,21 +156,39 @@ public class Character : MonoBehaviour
         switch(CurrentState){
             case CharacterState.Normal:
                 if(IsPlayer){
-                    if(_playerInput.MouseButtonDown){
-                        SwitchStateTo(CharacterState.Attacking);
-                        break;
-                    }
-                    CalculatePlayerMovement();
-                    CalculateVerticalMove();
-                    _cc.Move(_movementVelocity);    
+                    CalculatePlayerMovement(); 
                 }else{
                     CalculateEnemyMovement();
                 }
                 break;
             case CharacterState.Attacking:
+                if(IsPlayer){
+                    if(_playerInput.MouseButtonDown && _cc.isGrounded){
+                        string name = _animator.GetCurrentAnimatorClipInfo(0)[0].clip.name;
+                        attackAnimTime = _animator.GetCurrentAnimatorStateInfo(0).normalizedTime;
+                        if(name!="LittleAdventurerAndie_ATTACK_03" && attackAnimTime >0.2f&& attackAnimTime<0.7f){
+                            _playerInput.MouseButtonDown = false;
+                            SwitchStateTo(CharacterState.Attacking);
+                        }
+                    }
+                }
                 break;
             case CharacterState.Dead:
                 return;
+            case CharacterState.BeHit:
+                if(impactOnCharacter.magnitude > 0.2f){
+                    _movementVelocity = impactOnCharacter * Time.deltaTime;
+                }
+                _movementVelocity = Vector3.Lerp(_movementVelocity, Vector3.zero, Time.deltaTime * 5);
+                break;
+            case CharacterState.Slide:
+                _movementVelocity = transform.forward * slideSpeed * Time.deltaTime;
+                break;
+        }
+        if(IsPlayer){
+            CalculateVerticalMove();
+            _cc.Move(_movementVelocity);
+            _movementVelocity = Vector3.zero;
         }
     }
 
@@ -149,6 +198,18 @@ public class Character : MonoBehaviour
             GetComponent<EnemyVFXManager>().PlayBeHitVFX(attackPos);
         }
         StartCoroutine(MaterialBlink());
+        if(IsPlayer){
+            SwitchStateTo(CharacterState.BeHit);
+            AddImpact(attackPos, 1.0f);
+        }
+    }
+
+    private void AddImpact(Vector3 attackerPos, float force)
+    {
+        Vector3 impactDir = transform.position- attackerPos;
+        impactDir.Normalize();
+        impactDir.y =0;
+        impactOnCharacter = impactDir * force;
     }
 
     public void EnableDamage(){
@@ -163,6 +224,14 @@ public class Character : MonoBehaviour
     }
 
     public void AttackEnd(){
+        SwitchStateTo(CharacterState.Normal);
+    }
+
+    public void BeHitEnd(){
+        SwitchStateTo(CharacterState.Normal);
+    }
+
+    public void SlideEnd(){
         SwitchStateTo(CharacterState.Normal);
     }
 
@@ -197,6 +266,26 @@ public class Character : MonoBehaviour
         if(dropItem != null){
             Instantiate(dropItem, transform.position, Quaternion.identity);
         }
+    }
+
+    public void PickUpItem(PickUp item){
+        switch(item.Type){
+            case PickUp.PickUpType.Heal:
+                AddHealth(item.Value);
+                break;
+            case PickUp.PickUpType.Coin:
+                AddCoin(item.Value);
+                break;
+        }
+    }
+
+    private void AddHealth(int hp){
+        _health.AddHealth(hp);
+        GetComponent<PlayerVFXManager>().PlayHeal();
+    }
+
+    private void AddCoin(int coin){
+        Coin += coin;
     }
 
 

@@ -21,6 +21,12 @@ public class Health : MonoBehaviour
         Debug.Log(gameObject.name + "cur:" + curHp +"damage:"+ damage);
     }
 
+    public void AddHealth(int hp){
+        curHp += hp;
+        if(curHp>maxHp) curHp = maxHp;
+        Debug.Log(gameObject.name + "cur:" + curHp +"heal:"+ hp);
+    }
+
     // Start is called before the first frame update
     void Start()
     {
